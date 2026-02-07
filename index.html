@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sky High: Basant 2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+        }
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .touch-btn {
+            pointer-events: auto;
+            user-select: none;
+            cursor: pointer;
+        }
+        #joystick-container {
+            position: absolute;
+            bottom: 40px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+        #joystick-knob {
+            width: 50px;
+            height: 50px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+        .pull-button {
+            position: absolute;
+            bottom: 40px;
+            right: 30px;
+            width: 110px;
+            height: 110px;
+            background: #ff4757;
+            border-radius: 50%;
+            border: 5px solid rgba(255,255,255,0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 900;
+            font-size: 18px;
+            box-shadow: 0 8px 20px rgba(255, 71, 87, 0.4);
+            transition: all 0.1s;
+        }
+        .pull-button:active {
+            transform: scale(0.85);
+            background: #e63946;
+        }
+        #hud {
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .tension-bar-container {
+            width: 120px;
+            height: 10px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        #tension-bar {
+            width: 0%;
+            height: 100%;
+            background: #ffeb3b;
+            transition: width 0.1s;
+        }
+        #shout-out {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            color: #ffeb3b;
+            font-size: 5rem;
+            font-weight: 900;
+            text-shadow: 4px 4px 0 #000;
+            z-index: 100;
+            pointer-events: none;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-align: center;
+            white-space: nowrap;
+        }
+        #shout-out.show {
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        .diff-btn {
+            border: 2px solid transparent;
+            padding: 16px;
+            border-radius: 16px;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-color: #f3f4f6;
+            color: #9ca3af;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            pointer-events: auto;
+        }
+        
+        .diff-btn.active {
+            background-color: #4b5563 !important;
+            color: #ffffff !important;
+            border-color: #6b7280;
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
+
+        #music-panel {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            padding: 8px 16px;
+            border-radius: 9999px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        @media (max-width: 640px) {
+            #joystick-container { width: 100px; height: 100px; bottom: 30px; left: 20px; }
+            .pull-button { width: 90px; height: 90px; bottom: 30px; right: 20px; font-size: 14px; }
+            #hud h1 { font-size: 1.5rem; }
+            #shout-out { font-size: 3rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ui-overlay">
+        <div id="shout-out">BO KATA!</div>
+
+        <div id="hud">
+            <h1 class="text-3xl font-black italic tracking-tighter">KITES CUT: <span id="score">0</span></h1>
+            <div class="flex items-center gap-2 mt-1">
+                <span class="text-xs font-bold uppercase tracking-widest opacity-80">WIND SPEED</span>
+                <span id="wind" class="text-sm font-mono bg-white/20 px-2 rounded">5.0</span>
+            </div>
+            <div class="flex items-center gap-2 mt-1">
+                <span class="text-xs font-bold uppercase tracking-widest opacity-80">FLIGHT TIME</span>
+                <span id="timer" class="text-sm font-mono bg-white/20 px-2 rounded">00:00</span>
+            </div>
+            <div class="mt-4">
+                <span class="text-[10px] font-bold uppercase tracking-widest opacity-70">LINE TENSION</span>
+                <div class="tension-bar-container">
+                    <div id="tension-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="absolute top-6 right-6 pointer-events-auto">
+            <div id="music-panel">
+                <button id="prev-song" class="text-white hover:text-orange-400 transition-colors touch-btn">
+                    <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                </button>
+                <button id="toggle-mute" class="text-white hover:text-orange-400 transition-colors touch-btn">
+                    <svg id="mute-icon" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    </svg>
+                </button>
+                <button id="next-song" class="text-white hover:text-orange-400 transition-colors touch-btn">
+                    <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zM16 6h2v12h-2z"/></svg>
+                </button>
+            </div>
+            <div id="song-name-display" class="text-[10px] text-white/60 font-bold uppercase text-right mt-2 tracking-tighter"></div>
+        </div>
+
+        <div id="screen-start" class="fixed inset-0 bg-sky-950/70 backdrop-blur-xl flex items-center justify-center pointer-events-auto z-50">
+            <div class="bg-white p-8 rounded-[40px] text-center max-w-sm mx-4 shadow-[0_25px_60px_rgba(0,0,0,0.4)] border-b-8 border-gray-200">
+                <div class="relative mb-6 inline-block">
+                    <div class="absolute inset-0 bg-orange-400 blur-2xl opacity-20 animate-pulse"></div>
+                    <svg width="70" height="70" viewBox="0 0 100 100" class="relative drop-shadow-md">
+                        <path d="M50 5 L90 45 L50 85 L10 45 Z" fill="#ff4757" stroke="#333" stroke-width="3"/>
+                        <path d="M50 5 L50 85 M10 45 Q50 65 90 45" fill="none" stroke="white" stroke-width="2" opacity="0.6"/>
+                    </svg>
+                </div>
+                
+                <h2 id="menu-title" class="text-4xl font-black text-gray-900 mb-1 uppercase italic tracking-tighter leading-none">BASANT 2026</h2>
+                <p id="menu-subtitle" class="mb-8 text-gray-500 text-[10px] font-bold uppercase tracking-[0.2em]">Punjab Sky Festival</p>
+                
+                <div class="mb-8 pointer-events-auto">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Choose Challenge</p>
+                    <div class="grid grid-cols-3 gap-2" id="difficulty-group">
+                        <button type="button" data-level="easy" class="diff-btn touch-btn">RELAX</button>
+                        <button type="button" data-level="medium" class="diff-btn active touch-btn">PRO</button>
+                        <button type="button" data-level="hard" class="diff-btn touch-btn">LEGEND</button>
+                    </div>
+                </div>
+
+                <button id="start-btn" class="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white py-5 rounded-3xl font-black text-2xl transition-all shadow-[0_12px_24px_rgba(234,88,12,0.4)] active:scale-95 w-full uppercase italic tracking-tighter touch-btn">
+                    CHALO!
+                </button>
+
+                <p class="mt-8 text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">Developed by Hamza</p>
+            </div>
+        </div>
+
+        <div id="joystick-container" class="touch-btn">
+            <div id="joystick-knob"></div>
+        </div>
+        <div id="pull-btn" class="pull-button touch-btn">
+            <span>KHEECH!</span>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const windEl = document.getElementById('wind');
+        const timerEl = document.getElementById('timer');
+        const tensionBar = document.getElementById('tension-bar');
+        const shoutOut = document.getElementById('shout-out');
+        const startScreen = document.getElementById('screen-start');
+        const startBtn = document.getElementById('start-btn');
+        const diffButtons = document.querySelectorAll('.diff-btn');
+        const songLabel = document.getElementById('song-name-display');
+
+        let width, height, animationId, isPlaying = false, score = 0, tension = 0;
+        let startTime = 0, elapsedTime = 0;
+        let difficulty = 'medium';
+
+        const songData = [
+            { name: "Nach Punjaban", url: 'https://znuiuhxyhpgqmdftansc.supabase.co/storage/v1/object/public/files/Nach%20Punjaban.mp3' },
+            { name: "Uchiyan Majajan", url: 'https://znuiuhxyhpgqmdftansc.supabase.co/storage/v1/object/public/files/Uchiyan_majajan.mp3' },
+            { name: "Billo Da Ghar", url: 'https://znuiuhxyhpgqmdftansc.supabase.co/storage/v1/object/public/files/billo_da_ghar.mp3' },
+            { name: "Moray Saiyaan", url: 'https://znuiuhxyhpgqmdftansc.supabase.co/storage/v1/object/public/files/Aaja%20Re%20Moray%20Saiyaan%20Zeb%20Bangash.mp3' },
+            { name: "Patangbaaz Sajna", url: 'https://znuiuhxyhpgqmdftansc.supabase.co/storage/v1/object/public/files/Fariha%20Pervez_Patangbaaz%20Sajna.mp3' }
+        ];
+        
+        let currentSongIndex = 4; 
+        const bgAudio = new Audio(songData[currentSongIndex].url);
+        bgAudio.loop = true;
+
+        function playSong(index) {
+            currentSongIndex = index;
+            bgAudio.src = songData[currentSongIndex].url;
+            bgAudio.play().catch(() => console.log("Waiting for user interaction..."));
+            songLabel.innerText = "Playing: " + songData[currentSongIndex].name;
+        }
+
+        document.getElementById('next-song').onclick = (e) => { e.stopPropagation(); playSong((currentSongIndex + 1) % songData.length); };
+        document.getElementById('prev-song').onclick = (e) => { e.stopPropagation(); playSong((currentSongIndex - 1 + songData.length) % songData.length); };
+        document.getElementById('toggle-mute').onclick = (e) => {
+            e.stopPropagation();
+            bgAudio.muted = !bgAudio.muted;
+            document.getElementById('mute-icon').style.opacity = bgAudio.muted ? "0.4" : "1";
+        };
+
+        const CONFIGS = {
+            easy: { windMult: 0.1, aiIntel: 0.001, spawnRate: 0.01, cutTension: 30, loseChance: 0.02, maxEnemies: 4 },
+            medium: { windMult: 0.15, aiIntel: 0.002, spawnRate: 0.015, cutTension: 50, loseChance: 0.05, maxEnemies: 6 },
+            hard: { windMult: 0.22, aiIntel: 0.005, spawnRate: 0.03, cutTension: 75, loseChance: 0.12, maxEnemies: 9 }
+        };
+
+        const PLAYER_COLOR = "#ff4757";
+        // Specific blue color we use: #00d2d3
+        const ENEMY_COLORS = ["#f9ca24", "#6ab04c", "#00d2d3", "#be2edd", "#ffffff", "#000000"];
+
+        let wind = { x: 0.1, phase: 0 };
+        let player = null, enemies = [], particles = [], clouds = [], birds = [];
+        let input = { x: 0, y: 0, pulling: false };
+        let joystick = { active: false };
+
+        diffButtons.forEach(btn => {
+            const handleSelection = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                diffButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                difficulty = btn.dataset.level;
+            };
+            btn.addEventListener('click', handleSelection);
+            btn.addEventListener('touchstart', handleSelection);
+        });
+
+        class Cloud {
+            constructor() { this.reset(); this.x = Math.random() * window.innerWidth; }
+            reset() {
+                this.x = -200;
+                this.y = Math.random() * (window.innerHeight * 0.6);
+                this.speed = 0.5 + Math.random();
+                this.scale = 0.5 + Math.random();
+                this.opacity = 0.3 + Math.random() * 0.4;
+            }
+            update() {
+                this.x += this.speed + wind.x;
+                if (this.x > width + 200) this.reset();
+            }
+            draw() {
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 30 * this.scale, 0, Math.PI * 2);
+                ctx.arc(this.x + 25 * this.scale, this.y - 10 * this.scale, 25 * this.scale, 0, Math.PI * 2);
+                ctx.arc(this.x + 50 * this.scale, this.y, 30 * this.scale, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class Bird {
+            constructor() {
+                this.reset();
+                this.x = Math.random() * width;
+            }
+            reset() {
+                this.x = -50;
+                this.y = 20 + Math.random() * (height * 0.5);
+                this.speed = 1.5 + Math.random() * 2.5;
+                this.wingPhase = Math.random() * Math.PI * 2;
+                this.size = 2 + Math.random() * 2;
+            }
+            update() {
+                this.x += this.speed + (wind.x * 0.5);
+                this.wingPhase += 0.15;
+                if (this.x > width + 50) this.reset();
+            }
+            draw() {
+                ctx.strokeStyle = "rgba(0,0,0,0.3)";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                const wingY = Math.sin(this.wingPhase) * 4;
+                ctx.moveTo(this.x - this.size * 2, this.y + wingY);
+                ctx.quadraticCurveTo(this.x, this.y - 2, this.x + this.size * 2, this.y + wingY);
+                ctx.stroke();
+            }
+        }
+
+        class Kite {
+            constructor(x, y, color, isPlayer = false) {
+                this.pos = { x, y };
+                this.vel = { x: 0, y: 0 };
+                this.color = color;
+                // If the kite is blue (#00d2d3), wire is black. Otherwise, it matches color.
+                this.wireColor = (color === "#00d2d3") ? "#000000" : color;
+                this.isPlayer = isPlayer;
+                this.angle = 0;
+                this.isCut = false;
+                this.anchor = { x: width / 2, y: height + 100 };
+                this.tail = Array.from({length:15}, () => ({x,y}));
+                
+                if(!isPlayer) {
+                    this.anchor.x = Math.random() * width;
+                    this.targetX = Math.random() * width;
+                    this.moveTimer = 0;
+                    this.intel = CONFIGS[difficulty].aiIntel + Math.random() * 0.001;
+                }
+            }
+
+            update() {
+                const cfg = CONFIGS[difficulty];
+                if (this.isCut) {
+                    this.vel.y += 0.15;
+                    this.pos.x += this.vel.x + wind.x * 1.5;
+                    this.pos.y += this.vel.y;
+                    return;
+                }
+
+                this.vel.x += wind.x * cfg.windMult;
+
+                if (this.isPlayer) {
+                    this.vel.x += input.x * 0.6;
+                    this.vel.y += input.y * 0.6;
+                    
+                    if (input.pulling) {
+                        tension = Math.min(100, tension + (difficulty === 'hard' ? 3.5 : 5));
+                        let dx = this.anchor.x - this.pos.x;
+                        let dy = this.anchor.y - this.pos.y;
+                        this.vel.x += dx * 0.006;
+                        this.vel.y += dy * 0.006;
+                        this.vel.y -= 0.6; 
+                    } else {
+                        tension = Math.max(0, tension - 3);
+                    }
+                } else {
+                    this.moveTimer--;
+                    if(this.moveTimer <= 0) {
+                        this.targetX = player ? player.pos.x + (Math.random() - 0.5) * 200 : Math.random() * width;
+                        this.moveTimer = 60 + Math.random() * 120;
+                    }
+                    this.vel.x += (this.targetX - this.pos.x) * this.intel;
+                    this.vel.y += Math.sin(Date.now() / 1000) * 0.05;
+                }
+
+                this.vel.x *= 0.94;
+                this.vel.y *= 0.94;
+                this.pos.x += this.vel.x;
+                this.pos.y += this.vel.y;
+
+                this.pos.x = Math.max(30, Math.min(width - 30, this.pos.x));
+                this.pos.y = Math.max(80, Math.min(height - 150, this.pos.y));
+
+                this.angle = this.vel.x * 0.15;
+                this.tail.unshift({x: this.pos.x, y: this.pos.y});
+                if (this.tail.length > 20) this.tail.pop();
+            }
+
+            draw() {
+                if (!this.isCut) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.anchor.x, this.anchor.y);
+                    let ctrlX = (this.anchor.x + this.pos.x) / 2 + (wind.x * 150);
+                    let ctrlY = (this.anchor.y + this.pos.y) / 2 + 50;
+                    ctx.quadraticCurveTo(ctrlX, ctrlY, this.pos.x, this.pos.y);
+                    
+                    ctx.strokeStyle = this.wireColor;
+                    ctx.globalAlpha = 0.5;
+                    ctx.lineWidth = (this.isPlayer && input.pulling) ? 3 : 1.2;
+                    ctx.stroke();
+                    ctx.globalAlpha = 1.0;
+                }
+
+                ctx.beginPath();
+                ctx.moveTo(this.pos.x, this.pos.y);
+                for(let i=0; i<this.tail.length; i++) {
+                    const t = this.tail[i];
+                    ctx.lineTo(t.x + Math.sin(i * 0.5 + Date.now()*0.01) * 5, t.y + i * 5);
+                }
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 3;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.save();
+                ctx.translate(this.pos.x, this.pos.y);
+                ctx.rotate(this.angle);
+                
+                // Shadow
+                ctx.fillStyle = "rgba(0,0,0,0.1)";
+                ctx.beginPath();
+                ctx.moveTo(3, -22); ctx.lineTo(23, 3); ctx.lineTo(3, 28); ctx.lineTo(-17, 3);
+                ctx.fill();
+
+                // Kite Body
+                ctx.beginPath();
+                ctx.moveTo(0, -25); ctx.lineTo(20, 0); ctx.lineTo(0, 25); ctx.lineTo(-20, 0);
+                ctx.closePath();
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.strokeStyle = (this.color === "#ffffff" || this.color === "#00d2d3") ? "#333" : "white";
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        function triggerBoKata() {
+            shoutOut.classList.add('show');
+            setTimeout(() => shoutOut.classList.remove('show'), 1200);
+        }
+
+        function spawnEnemy() {
+            const cfg = CONFIGS[difficulty];
+            if (enemies.length < cfg.maxEnemies && Math.random() < cfg.spawnRate) {
+                const color = ENEMY_COLORS[Math.floor(Math.random() * ENEMY_COLORS.length)];
+                enemies.push(new Kite(Math.random() * width, -60, color, false));
+            }
+        }
+
+        function formatTime(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function checkCollisions() {
+            if (!player || player.isCut || !isPlaying) return;
+            const cfg = CONFIGS[difficulty];
+
+            enemies.forEach((enemy) => {
+                if (enemy.isCut) return;
+                let dx = player.pos.x - enemy.pos.x;
+                let dy = player.pos.y - enemy.pos.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+
+                if (dist < 45) {
+                    if (input.pulling && tension > cfg.cutTension) {
+                        enemy.isCut = true;
+                        score++;
+                        scoreEl.innerText = score;
+                        triggerBoKata();
+                        createExplosion(enemy.pos.x, enemy.pos.y, enemy.color);
+                    } else if (!input.pulling || tension < 15) {
+                        if (Math.random() < cfg.loseChance) gameOver();
+                    }
+                }
+            });
+            enemies = enemies.filter(e => e.pos.y < height + 250);
+        }
+
+        function createExplosion(x, y, color) {
+            for(let i=0; i<25; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 14,
+                    vy: (Math.random() - 0.5) * 14,
+                    life: 1,
+                    size: 2 + Math.random() * 5,
+                    color
+                });
+            }
+        }
+
+        function gameOver() {
+            if (!isPlaying) return;
+            player.isCut = true;
+            isPlaying = false;
+            const finalTime = formatTime(elapsedTime);
+            setTimeout(() => {
+                startScreen.classList.remove('hidden');
+                document.getElementById('menu-title').innerText = "KATA GAYA!";
+                document.getElementById('menu-subtitle').innerHTML = `Cut: <span class="text-red-500 font-black">${score}</span> • Time: <span class="text-blue-500 font-black">${finalTime}</span>`;
+                document.getElementById('start-btn').innerText = "PHIR SE!";
+            }, 1800);
+        }
+
+        function loop() {
+            ctx.clearRect(0, 0, width, height);
+            
+            if (isPlaying) {
+                elapsedTime = Date.now() - startTime;
+                timerEl.innerText = formatTime(elapsedTime);
+            }
+
+            wind.phase += 0.01;
+            wind.x = 0.5 + Math.sin(wind.phase) * (difficulty === 'hard' ? 2.5 : 1.5);
+            windEl.innerText = (Math.abs(wind.x) * 5).toFixed(1);
+            tensionBar.style.width = tension + "%";
+
+            clouds.forEach(c => { c.update(); c.draw(); });
+            birds.forEach(b => { b.update(); b.draw(); });
+
+            if (player) { player.update(); player.draw(); }
+            enemies.forEach(enemy => { enemy.update(); enemy.draw(); });
+
+            checkCollisions();
+            
+            particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life -= 0.02;
+                if(p.life <= 0) particles.splice(i, 1);
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+            });
+            ctx.globalAlpha = 1;
+            
+            spawnEnemy();
+            animationId = requestAnimationFrame(loop);
+        }
+
+        function init() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            clouds = Array.from({length: 10}, () => new Cloud());
+            birds = Array.from({length: 6}, () => new Bird());
+            if (!animationId) loop();
+        }
+
+        function startGame() {
+            score = 0;
+            scoreEl.innerText = "0";
+            isPlaying = true;
+            tension = 0;
+            startTime = Date.now();
+            elapsedTime = 0;
+            startScreen.classList.add('hidden');
+            player = new Kite(width / 2, height * 0.7, PLAYER_COLOR, true);
+            enemies = [];
+            particles = [];
+            if (bgAudio.paused) {
+                const randomIndex = Math.floor(Math.random() * songData.length);
+                playSong(randomIndex);
+            }
+        }
+
+        startBtn.onclick = (e) => { e.stopPropagation(); startGame(); };
+
+        const knob = document.getElementById('joystick-knob');
+        const joyContainer = document.getElementById('joystick-container');
+        const pullBtn = document.getElementById('pull-btn');
+
+        function handleMove(clientX, clientY) {
+            if (!joystick.active) return;
+            const rect = joyContainer.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            let dx = clientX - centerX;
+            let dy = clientY - centerY;
+            const maxDist = rect.width / 2;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > maxDist) { dx *= maxDist / dist; dy *= maxDist / dist; }
+            knob.style.transform = `translate(${dx}px, ${dy}px)`;
+            input.x = dx / maxDist;
+            input.y = dy / maxDist;
+        }
+
+        const startInput = (e) => { 
+            joystick.active = true; 
+            const p = e.touches ? e.touches[0] : e;
+            handleMove(p.clientX, p.clientY);
+        };
+        const endInput = () => { 
+            joystick.active = false; 
+            knob.style.transform = `translate(0, 0)`; 
+            input.x = 0; input.y = 0; 
+        };
+
+        joyContainer.addEventListener('mousedown', startInput);
+        joyContainer.addEventListener('touchstart', startInput);
+        window.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+        window.addEventListener('touchmove', (e) => handleMove(e.touches[0].clientX, e.touches[0].clientY));
+        window.addEventListener('mouseup', endInput);
+        window.addEventListener('touchend', endInput);
+
+        pullBtn.addEventListener('mousedown', () => input.pulling = true);
+        pullBtn.addEventListener('touchstart', (e) => { e.preventDefault(); input.pulling = true; });
+        window.addEventListener('mouseup', () => input.pulling = false);
+        window.addEventListener('touchend', () => input.pulling = false);
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            if (player) player.anchor.x = width / 2;
+        });
+
+        init();
+    </script>
+</body>
+</html>
